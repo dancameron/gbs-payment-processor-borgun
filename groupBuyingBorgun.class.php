@@ -15,22 +15,22 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 	const MODE_LIVE = 'live';
 
 	const API_MERCHANTID_OPTION = 'gb_borgun_merchantid';
-	const API_USERNAME_OPTION = 'gb_paypal_username';
-	const API_SIGNATURE_OPTION = 'gb_paypal_signature';
-	const API_PASSWORD_OPTION = 'gb_paypal_password';
-	const API_MODE_OPTION = 'gb_paypal_mode';
+	const API_USERNAME_OPTION = 'gb_borgun_username';
+	const API_SIGNATURE_OPTION = 'gb_borgun_signature';
+	const API_PASSWORD_OPTION = 'gb_borgun_password';
+	const API_MODE_OPTION = 'gb_borgun_mode';
 	const API_SECRETCODE_OPTION = 'gb_borgun_secrecode';
 	const API_PAGETYPE_OPTION = 'gb_borgun_pagetype';
 	const API_SKIPRECEIPTPAGE_OPTION = 'gb_borgun_skipreceiptpage';
 	const API_PAYMENTGATEWAYID_OPTION = 'gb_borgun_paymentgatewayid';
 	const API_MERCHANTLOGO_OPTION = 'gb_borgun_merchantlogo';
 
-	const CANCEL_URL_OPTION = 'gb_paypal_cancel_url';
-	const RETURN_URL_OPTION = 'gb_paypal_return_url';
-	const ERROR_URL_OPTION = 'gb_paypal_error_url';
-	const SUCCESSSERVER_URL_OPTION = 'gb_paypal_error_url';
+	const CANCEL_URL_OPTION = 'gb_borgun_cancel_url';
+	const RETURN_URL_OPTION = 'gb_borgun_return_url';
+	const ERROR_URL_OPTION = 'gb_borgun_error_url';
+	const SUCCESSSERVER_URL_OPTION = 'gb_borgun_error_url';
 
-	const CURRENCY_CODE_OPTION = 'gb_paypal_currency';
+	const CURRENCY_CODE_OPTION = 'gb_borgun_currency';
 	const PAYMENT_METHOD = 'Borgun EC';
 	const TOKEN_KEY = 'gb_token_key'; // Combine with $blog_id to get the actual meta key
 	const PAYER_ID = 'gb_payer_id'; // Combine with $blog_id to get the actual meta key
@@ -127,7 +127,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 	}
 
 	public static function register() {
-		self::add_payment_processor( __CLASS__, self::__( 'Borgun Payments Standard' ) );
+		self::add_payment_processor( __CLASS__, self::__( 'Borgun Payments' ) );
 	}
 
 	public static function public_name() {
@@ -270,7 +270,6 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 		$payment = Group_Buying_Payment::get_instance( $payment_id );
 		do_action( 'payment_authorized', $payment );
 
-		$this->create_recurring_payment_profiles( $checkout, $purchase );
 		self::unset_token();
 
 		return $payment;
@@ -419,11 +418,6 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 
 				$nvpData['itemcount_'.$i] = $item['quantity'];
 
-
-				if ( !empty( $item['data']['recurring'] ) ) {
-					$nvpData['L_BILLINGTYPE'.$j] = 'RecurringPayments';
-					$nvpData['L_BILLINGAGREEMENTDESCRIPTION'.$j] = $deal->get_title( $item['data'] );
-				}
 				$i++;
 			}
 			if ( $filtered_total < $cart->get_total() ) {
@@ -435,7 +429,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 			}
 		}
 
-		$nvpData = apply_filters( 'gb_paypal_ec_set_nvp_data', $nvpData );
+		$nvpData = apply_filters( 'gb_borgun_ec_set_nvp_data', $nvpData );
 		if ( self::DEBUG ) {
 			error_log( '----------Borgun EC SetCheckout Data----------' );
 			error_log( print_r( $nvpData, TRUE ) );
@@ -591,7 +585,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 				&& ( $cart->get_subtotal() + $filtered_total - $cart->get_total() ) == 0
 			)
 		) {
-			// handle free/credit purchases (paypal requires minimum 0.01 item amount)
+			// handle free/credit purchases (borgun requires minimum 0.01 item amount)
 			if ( $nvpData['PAYMENTREQUEST_0_SHIPPINGAMT'] != gb_get_number_format( 0 ) ) {
 				$nvpData['PAYMENTREQUEST_0_ITEMAMT'] = $nvpData['PAYMENTREQUEST_0_SHIPPINGAMT'];
 				$nvpData['PAYMENTREQUEST_0_SHIPPINGAMT'] = gb_get_number_format( 0 );
@@ -621,7 +615,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 			}
 		}
 
-		$nvpData = apply_filters( 'gb_paypal_ec_nvp_data', $nvpData, $checkout, $i, $purchase );
+		$nvpData = apply_filters( 'gb_borgun_ec_nvp_data', $nvpData, $checkout, $i, $purchase );
 
 		return $nvpData;
 	}
@@ -737,280 +731,19 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 		$nvpData['CURRENCYCODE'] = self::get_currency_code();
 		$nvpData['COMPLETETYPE'] = $status;
 
-		$nvpData = apply_filters( 'gb_paypal_ec_capture_nvp_data', $nvpData );
+		$nvpData = apply_filters( 'gb_borgun_ec_capture_nvp_data', $nvpData );
 
 		//$nvpData = array_map('rawurlencode', $nvpData);
 		return $nvpData;
 	}
 
 	private function get_currency_code() {
-		return apply_filters( 'gb_paypal_ec_currency_code', self::$currency_code );
-	}
-
-	/**
-	 * Create recurring payment profiles for any recurring deals in the purchase
-	 *
-	 * @param Group_Buying_Checkouts $checkout
-	 * @param Group_Buying_Purchase $purchase
-	 * @return void
-	 */
-	private function create_recurring_payment_profiles( Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
-		foreach ( $purchase->get_products() as $item ) {
-			if ( isset( $item['payment_method'][$this->get_payment_method()] ) && isset( $item['data']['recurring'] ) && $item['data']['recurring'] ) {
-				// make a separate recurring payment for each item,
-				// so they can be cancelled separately if necessary
-				$this->create_recurring_payment_profile( $item, $checkout, $purchase );
-			}
-		}
-	}
-
-	/**
-	 * Create the recurring payment profile.
-	 *
-	 * Start on the second payment, as the first payment is included in the initial purchase
-	 *
-	 * @param array   $item
-	 * @param Group_Buying_Checkouts $checkout
-	 * @param Group_Buying_Purchase $purchase
-	 * @return bool Whether we succeeded in creating a recurring payment profile
-	 */
-	private function create_recurring_payment_profile( $item, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
-		echo "create_recurring_payment_profile";
-
-		// see https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/e_howto_api_nvp_r_CreateRecurringPayments
-		$nvpData = $this->create_recurring_payment_nvp_data( $item, $checkout, $purchase );
-		if ( !$nvpData ) {
-			return FALSE; // paying for it some other way
-		}
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Request ----------' );
-			error_log( print_r( $nvpData, TRUE ) );
-		}
-
-		$response = wp_remote_post( self::get_api_url(), array(
-				'method' => 'POST',
-				'body' => $nvpData,
-				'timeout' => apply_filters( 'http_request_timeout', 15 ),
-				'sslverify' => false
-			) );
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Response (Raw)----------' );
-			error_log( print_r( $response, TRUE ) );
-		}
-
-		if ( is_wp_error( $response ) ) {
-			return FALSE;
-		}
-		if ( $response['response']['code'] != '200' ) {
-			return FALSE;
-		}
-
-		$response = wp_parse_args( wp_remote_retrieve_body( $response ) );
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Response (Parsed)----------' );
-			error_log( print_r( $response, TRUE ) );
-		}
-
-		if ( empty( $response['PROFILEID'] ) ) {
-			do_action( 'gb_paypal_recurring_payment_profile_failed' );
-			return FALSE;
-		}
-
-		// create a payment to store the API response
-		$payment_id = Group_Buying_Payment::new_payment( array(
-				'payment_method' => $this->get_payment_method(),
-				'purchase' => $purchase->get_id(),
-				'amount' => $item['data']['recurring']['price'],
-				'data' => array(
-					'api_response' => $response,
-				),
-			), Group_Buying_Payment::STATUS_RECURRING );
-
-		// let the world know
-		do_action( 'gb_paypal_recurring_payment_profile_created', $payment_id );
-		return TRUE;
-	}
-
-	private function create_recurring_payment_nvp_data( $item, Group_Buying_Checkouts $checkout, Group_Buying_Purchase $purchase ) {
-		$deal = Group_Buying_Deal::get_instance( $item['deal_id'] );
-		$user = get_userdata( get_current_user_id() );
-		$term = $item['data']['recurring']['term']; // day, week, month, or year
-		$duration = (int)$item['data']['recurring']['duration'];
-		$price = $item['data']['recurring']['price'];
-
-		$terms = array(
-			'day' => 'Day',
-			'week' => 'Week',
-			'month' => 'Month',
-			'year' => 'Year',
-		);
-		if ( !isset( $terms[$term] ) ) {
-			$term = 'day';
-		}
-
-		$starts = strtotime( date( 'Y-m-d' ).' +'.$duration.' '.$term );
-
-		$nvp = array(
-			'USER' => self::$api_username,
-			'PWD' => self::$api_password,
-			'SIGNATURE' => self::$api_signature,
-			'MERCHANTID' => self::$api_merchantid,
-			'PAGETYPE' => self::$api_pagetype,
-			'PAYMENTGATEWAYID' => self::$api_paymentgatwayid,
-			'MERCHANTLOGO' => self::$api_merchantlogo,
-
-
-			'VERSION' => self::$version,
-			'METHOD' => 'CreateRecurringPaymentsProfile',
-			'TOKEN' => self::get_token(),
-			'PROFILESTARTDATE' => date( 'Y-m-d', $starts ).'T00:00:00Z',
-			'PROFILEREFERENCE' => $purchase->get_id(),
-			'DESC' => $deal->get_title( $item['data'] ),
-			'MAXFAILEDPAYMENTS' => 2,
-			'AUTOBILLOUTAMT' => 'AddToNextBilling',
-			'BILLINGPERIOD' => $terms[$term],
-			'BILLINGFREQUENCY' => $duration,
-			'TOTALBILLINGCYCLES' => 0,
-			'AMT' => gb_get_number_format( $price ),
-			'CURRENCYCODE' => self::get_currency_code(),
-			'MerchantEMail' => $user->user_email,
-			'L_PAYMENTREQUEST_0_ITEMCATEGORY0' => 'Digital',
-			'L_PAYMENTREQUEST_0_NAME0' => $deal->get_title( $item['data'] ),
-			'L_PAYMENTREQUEST_0_AMT0' => gb_get_number_format( $price ),
-			'L_PAYMENTREQUEST_0_NUMBER0' => $deal->get_id(),
-			'L_PAYMENTREQUEST_0_QTY0' => 1,
-		);
-		return $nvp;
-	}
-
-	/**
-	 *
-	 *
-	 * @param Group_Buying_Payment $payment
-	 * @return void
-	 */
-	public function verify_recurring_payment( Group_Buying_Payment $payment ) {
-		// Check if the payment has a recurring profile ID (in $data['api_response'])
-		$data = $payment->get_data();
-		if ( empty( $data['api_response']['PROFILEID'] ) ) {
-			return;
-		}
-		// Get the profile status
-		//  - see https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/e_howto_api_nvp_r_GetRecurringPaymentsProfileDetails
-		$status = $this->get_recurring_payment_status( $data['api_response']['PROFILEID'] );
-		if ( $status != 'Active' ) {
-			$payment->set_status( Group_Buying_Payment::STATUS_CANCELLED );
-		}
-	}
-
-	private function get_recurring_payment_status( $profile_id ) {
-		$nvp = array(
-			'USER' => self::$api_username,
-			'PWD' => self::$api_password,
-			'SIGNATURE' => self::$api_signature,
-			'MERCHANTID' => self::$api_merchantid,
-			'PAYMENTGATEWAYID' => self::$api_paymentgatwayid,
-
-			'VERSION' => self::$version,
-			'METHOD' => 'GetRecurringPaymentsProfileDetails',
-			'PROFILEID' => $profile_id,
-		);
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Details Request ----------' );
-			error_log( print_r( $nvp, TRUE ) );
-		}
-
-		$response = wp_remote_post( self::get_api_url(), array(
-				'method' => 'POST',
-				'body' => $nvp,
-				'timeout' => apply_filters( 'http_request_timeout', 15 ),
-				'sslverify' => false
-			) );
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Details Response (Raw)----------' );
-			error_log( print_r( $response, TRUE ) );
-		}
-
-		if ( is_wp_error( $response ) ) {
-			return FALSE;
-		}
-		if ( $response['response']['code'] != '200' ) {
-			return FALSE;
-		}
-
-		$response = wp_parse_args( wp_remote_retrieve_body( $response ) );
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Recurring Payment Details Response (Parsed)----------' );
-			error_log( print_r( $response, TRUE ) );
-		}
-
-		if ( empty( $response['STATUS'] ) ) {
-			return FALSE;
-		}
-
-		return $response['STATUS'];
-	}
-
-	/**
-	 *
-	 *
-	 * @param Group_Buying_Payment $payment
-	 * @return void
-	 */
-	public function cancel_recurring_payment( Group_Buying_Payment $payment ) {
-		// Check if the payment has a recurring profile ID (in $data['api_response'])
-		$data = $payment->get_data();
-		if ( empty( $data['api_response']['PROFILEID'] ) ) {
-			return;
-		}
-		$profile_id = $data['api_response']['PROFILEID'];
-		// Cancel the profile
-		//  - see https://cms.paypal.com/us/cgi-bin/?cmd=_render-content&content_ID=developer/e_howto_api_nvp_r_ManageRecurringPaymentsProfileStatus
-
-		$nvp = array(
-			'USER' => self::$api_username,
-			'PWD' => self::$api_password,
-			'SIGNATURE' => self::$api_signature,
-			'MERCHANTID' => self::$api_merchantid,
-			'PAYMENTGATEWAYID' => self::$api_paymentgatwayid,
-
-			'VERSION' => self::$version,
-			'METHOD' => 'ManageRecurringPaymentsProfileStatus',
-			'PROFILEID' => $profile_id,
-			'ACTION' => 'Cancel',
-			'NOTE' => apply_filters( 'gbs_paypal_recurring_payment_cancelled_note', '' ),
-		);
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Cancel Recurring Payment Request ----------' );
-			error_log( print_r( $nvp, TRUE ) );
-		}
-
-		$response = wp_remote_post( self::get_api_url(), array(
-				'method' => 'POST',
-				'body' => $nvp,
-				'timeout' => apply_filters( 'http_request_timeout', 15 ),
-				'sslverify' => false
-			) );
-
-		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC Cancel Recurring Payment Response (Raw)----------' );
-			error_log( print_r( $response, TRUE ) );
-		}
-		// we don't really need to do anything with the response. It's either a success message
-		// or the profile is already cancelled/suspended. Either way, we're good.
-		parent::cancel_recurring_payment( $payment );
+		return apply_filters( 'gb_borgun_ec_currency_code', self::$currency_code );
 	}
 
 	public function register_settings() {
 		$page = Group_Buying_Payment_Processors::get_settings_page();
-		$section = 'gb_paypal_settings';
+		$section = 'gb_borgun_settings';
 		add_settings_section( $section, self::__( 'Borgun Payments Standard' ), array( $this, 'display_settings_section' ), $page );
 		register_setting( $page, self::API_MODE_OPTION );
 		register_setting( $page, self::API_USERNAME_OPTION );
