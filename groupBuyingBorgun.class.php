@@ -315,9 +315,8 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 	public function back_from_borgun() {
 		
 		if ( self::validate_purchase() ) {
-			$_REQUEST = NULL;
 			$_REQUEST['gb_checkout_action'] = 'back_from_borgan';
-			error_log( "SUCCESS: " . print_r( $_REQUEST, true ) );
+			if ( self::DEBUG ) error_log( "SUCCESS: " . print_r( $_REQUEST, true ) );
 			return;
 		} elseif ( !isset( $_REQUEST['gb_checkout_action'] ) ) {
 			// this is a new checkout. clear the token so we don't give things away for free
@@ -326,6 +325,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 		// Report errors.
 		if ( isset( $_REQUEST['errordetail'] ) ) {
 			self::set_error_messages( $_REQUEST['errordetail'] );
+			self::unset_token();
 		}
 	}
 
@@ -373,20 +373,8 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 
 		$nvpData['merchantemail'] = get_bloginfo('admin_email');
 		$nvpData['buyeremail'] = $user->user_email;
-		
-		if ( isset( $checkout->cache['shipping'] ) ) {
-			$nvpData['NOSHIPPING'] = 2;
-			$nvpData['ADDROVERRIDE'] = 1;
-			$nvpData['PAYMENTREQUEST_0_SHIPTONAME'] = $checkout->cache['shipping']['first_name'].' '.$checkout->cache['shipping']['last_name'];
-			$nvpData['PAYMENTREQUEST_0_SHIPTOSTREET'] = $checkout->cache['shipping']['street'];
-			$nvpData['PAYMENTREQUEST_0_SHIPTOCITY'] = $checkout->cache['shipping']['city'];
-			$nvpData['PAYMENTREQUEST_0_SHIPTOSTATE'] = $checkout->cache['shipping']['zone'];
-			$nvpData['PAYMENTREQUEST_0_SHIPTOZIP'] = $checkout->cache['shipping']['postal_code'];
-			$nvpData['PAYMENTREQUEST_0_SHIPTOCOUNTRYCODE'] = $checkout->cache['shipping']['country'];
-		}
 
 		$i = 0;
-		$j = 0;
 		if (
 			$nvpData['PAYMENTREQUEST_0_ITEMAMT'] == gb_get_number_format( 0 ) ||
 			( $filtered_total < $cart->get_total()
@@ -416,8 +404,8 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 
 		$nvpData = apply_filters( 'gb_borgun_ec_set_nvp_data', $nvpData );
 		if ( self::DEBUG ) {
-			error_log( '----------Borgun EC SetCheckout Data----------' );
-			error_log( print_r( $nvpData, TRUE ) );
+			if ( self::DEBUG ) error_log( '----------Borgun EC SetCheckout Data----------' );
+			if ( self::DEBUG ) error_log( print_r( $nvpData, TRUE ) );
 		}
 
 		return apply_filters( 'gb_set_nvp_data', $nvpData, $checkout, $i );
@@ -471,7 +459,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 		add_settings_field( self::LANG_OPTION, self::__( 'Language (Supported langages are icelandic (IS), english (EN), german (DE), french (FR), russian (RU), spanish (ES) Italian (IT), portuguese (PT) and swedish (SE))' ), array( get_class(), 'display_lang_field' ), $page, $section );
 		add_settings_field( self::CURRENCY_CODE_OPTION, self::__( 'Currency' ), array( get_class(), 'display_currency_code_field' ), $page, $section );
 
-		add_settings_section( 'gb_logs', self::__( 'Logs' ), array( $this, 'display_settings_logs' ), $page );
+		// add_settings_section( 'gb_logs', self::__( 'Logs' ), array( $this, 'display_settings_logs' ), $page );
 	}
 
 	public function display_api_mode_field() {
@@ -527,8 +515,8 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 	        });
 		</script>
 		<?php
-		//echo '<a id="logs_link" class="button">'.self::__( 'Logs' ).'</a>';
-		//echo '<div id="debug_wrap"><pre>'.print_r( get_option( self::LOGS ), true ).'</pre></div>';
+		echo '<a id="logs_link" class="button">'.self::__( 'Logs' ).'</a>';
+		echo '<div id="debug_wrap"><pre>'.print_r( get_option( self::LOGS ), true ).'</pre></div>';
 	}
 
 	public function cart_controls( $controls ) {
