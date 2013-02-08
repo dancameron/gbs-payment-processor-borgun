@@ -171,8 +171,8 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 
 		$_html[] = "<html>";
 		$_html[] = "<head><title>Processing Payment...</title></head>";
-		//$_html[] = "<body onLoad=\"document.forms['borgun_form'].submit();\">";
-		$_html[] = "<body>";
+		$_html[] = "<body onLoad=\"document.forms['borgun_form'].submit();\">";
+		//$_html[] = "<body>";
 		$_html[] = '<center><img src="'. gb_get_header_logo() .'"></center>';
 		$_html[] =  "<center><h2>";
 		$_html[] = self::__("Please wait, your order is being processed and you will be redirected to the Borgun website.");
