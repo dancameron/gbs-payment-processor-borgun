@@ -125,7 +125,7 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 	}
 
 	public static function checkout_icon() {
-		return '<img src="https://www.paypal.com/en_US/i/btn/btn_xpressCheckout.gif" title="Paypal Payments" id="paypal_icon"/>';
+		return '<img src="https://www.borgun.is/library/Skrar/Vorumerki/borgun150px.png" title="Borgun Payments" id="borgun_icon offsite_payments_icon"/>';
 	}
 
 	/**
@@ -245,9 +245,9 @@ class Group_Buying_Borgun_EC extends Group_Buying_Offsite_Processors {
 		$payment_id = Group_Buying_Payment::new_payment( array(
 				'payment_method' => self::get_payment_method(),
 				'purchase' => $purchase->get_id(),
-				'amount' => $response['PAYMENTINFO_0_AMT'],
+				'amount' => $purchase->get_total( self::get_payment_method() ),
 				'data' => array(
-					'api_response' => $response,
+					'api_response' => null,
 					'uncaptured_deals' => $deal_info
 				),
 				// 'transaction_id' => $response[], // TODO set the transaction ID
